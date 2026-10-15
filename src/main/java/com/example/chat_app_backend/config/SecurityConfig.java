@@ -37,7 +37,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/login").permitAll()
                         .requestMatchers("/auth/register").permitAll()
-                        .requestMatchers("/auth/me", "/messages/**", "/users/**", "/ws/**").authenticated()
+                        .requestMatchers("/auth/me", "/messages/**", "/users/**", "/conversations/**", "/ws/**")
+                        .authenticated()
                         .anyRequest().permitAll());
 
         return http.build();

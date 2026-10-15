@@ -4,7 +4,7 @@ public class ChatMessage {
 
     private Long id;
     private Long senderId;
-    private Long receiverId;
+    private Long conversationId;
     private String content;
     private String createdAt;
 
@@ -23,16 +23,16 @@ public class ChatMessage {
         return senderId;
     }
 
-    public Long getReceiverId() {
-        return receiverId;
+    public Long getConversationId() {
+        return conversationId;
     }
 
     public void setSenderId(Long senderId) {
         this.senderId = senderId;
     }
 
-    public void setReceiverId(Long receiverId) {
-        this.receiverId = receiverId;
+    public void setConversationid(Long conversationId) {
+        this.conversationId = conversationId;
     }
 
     public String getContent() {
