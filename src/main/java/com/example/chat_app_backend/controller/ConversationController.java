@@ -2,13 +2,14 @@ package com.example.chat_app_backend.controller;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.Instant;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,11 +18,11 @@ import com.example.chat_app_backend.models.Conversation;
 import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.Participant;
-
-import com.example.chat_app_backend.models.DirectConversationRequest;
 import com.example.chat_app_backend.repository.ConversationRepository;
-import com.example.chat_app_backend.models.GroupConversationRequest;
 import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.schemas.AlterParticipantRequest;
+import com.example.chat_app_backend.schemas.DirectConversationRequest;
+import com.example.chat_app_backend.schemas.GroupConversationRequest;
 
 import jakarta.transaction.Transactional;
 
@@ -53,26 +54,40 @@ public class ConversationController {
     @GetMapping
     public List<Map<String, Object>> getConversations(Authentication authentication) {
 
-        String myUsername = authentication.getName();
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        // List<Participant> mine = participantRepository.findByUserId(user.getId());
 
-        User me = userRepository.findByUsername(myUsername).orElseThrow();
-
-        List<Long> ids = participantRepository.findByUserId(me.getId()).stream()
+        List<Long> ids = participantRepository.findByUserId(user.getId()).stream()
                 .map(Participant::getConversationId)
                 .toList();
 
         return conversationRepository.findAllById(ids).stream()
                 .map(c -> {
+
                     Map<String, Object> dto = new HashMap<>();
                     dto.put("id", c.getConversationId());
                     dto.put("type", c.getType());
 
+                    Participant mine = participantRepository
+                            .findByConversationIdAndUserId(c.getConversationId(), user.getId()).orElse(null);
+
+                    // dto.put("active", mine.getRemovedAt());
+
+                    if (mine.getRemovedAt() == null) {
+                        dto.put("isActive", true);
+                    } else {
+                        dto.put("isActive", false);
+                    }
+
                     if ("GROUP".equals(c.getType())) {
                         dto.put("name", c.getName());
+
                     } else {
                         Participant otherParticipant = participantRepository
-                                .findFirstByConversationIdAndUserIdNot(c.getConversationId(), me.getId()).orElseThrow();
+                                .findFirstByConversationIdAndUserIdNot(c.getConversationId(), user.getId());
+
                         User otherUser = userRepository.findById(otherParticipant.getUserId()).orElseThrow();
+
                         dto.put("id", c.getConversationId());
                         dto.put("name", otherUser.getUsername());
                         dto.put("type", c.getType());
@@ -80,7 +95,6 @@ public class ConversationController {
                         dto.put("otherUsername", otherUser.getUsername());
                     }
                     return dto;
-
                 }).toList();
     }
 
@@ -120,10 +134,14 @@ public class ConversationController {
                     Participant p1 = new Participant();
                     p1.setConversationId(created.getConversationId());
                     p1.setUserId(me.getId());
+                    p1.setRole("MEMBER");
+                    p1.setAddedAt(Instant.now());
 
                     Participant p2 = new Participant();
                     p2.setConversationId(created.getConversationId());
                     p2.setUserId(otherId);
+                    p2.setRole("MEMBER");
+                    p2.setAddedAt(Instant.now());
 
                     participantRepository.save(p1);
                     participantRepository.save(p2);
@@ -142,14 +160,27 @@ public class ConversationController {
     // load messages for any conversation regardless of type
     @GetMapping("/{conversationId}/messages")
     public ResponseEntity<?> loadMessages(@PathVariable Long conversationId, Authentication authentication) {
-        String myUsername = authentication.getName();
-        User me = userRepository.findByUsername(myUsername).orElseThrow();
 
-        if (!participantRepository.existsByConversationIdAndUserId(conversationId, me.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant");
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
+
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User does not exist in group.");
         }
 
-        List<Message> messages = messageRepository.findByConversationIdOrderByIdAsc(conversationId);
+        Instant historyEnd = me.getRemovedAt();
+
+        // if (!participantRepository.existsByConversationIdAndUserId(conversationId,
+        // me.getUserId())) {
+        // return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant");
+        // }
+
+        if (historyEnd == null) {
+            historyEnd = Instant.now();
+        }
+
+        List<Message> messages = messageRepository.findByConversationIdAndCreatedAtBetweenOrderByIdAsc(conversationId,
+                me.getAddedAt(), historyEnd);
 
         Map<Long, String> names = userRepository
                 .findAllById(messages.stream().map(Message::getSenderId).distinct().toList())
@@ -168,6 +199,7 @@ public class ConversationController {
         }).toList();
 
         return ResponseEntity.ok(result);
+
     }
 
     @PostMapping()
@@ -187,12 +219,18 @@ public class ConversationController {
         Participant p1 = new Participant();
         p1.setConversationId(created.getConversationId());
         p1.setUserId(me.getId());
+        p1.setRole("ADMIN");
+        p1.setAddedAt(Instant.now());
+        p1.setRemovedAt(null);
         participantRepository.save(p1);
 
         for (Long userId : request.getParticipantIds()) {
             Participant p = new Participant();
             p.setConversationId(created.getConversationId());
             p.setUserId(userId);
+            p.setRole("MEMBER");
+            p.setAddedAt(Instant.now());
+            p.setRemovedAt(null);
             participantRepository.save(p);
         }
 
@@ -201,6 +239,116 @@ public class ConversationController {
         dto.put("type", created.getType());
         dto.put("name", created.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    }
+
+    @PostMapping("/{conversationId}/participants")
+    @Transactional
+    public ResponseEntity<?> addParticipants(@PathVariable Long conversationId,
+            @RequestBody AlterParticipantRequest request, Authentication authentication) {
+
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
+
+        if (me == null || me.getRemovedAt() != null || !"ADMIN".equals(me.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not an admin");
+        }
+
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null || !"GROUP".equals(conversation.getType())) {
+            return ResponseEntity.badRequest().body("Not a group");
+        }
+
+        if (request.getParticipantUserIds() == null || request.getParticipantUserIds().isEmpty()) {
+            return ResponseEntity.badRequest().body("No users given");
+        }
+
+        Set<Long> ids = new HashSet<>(request.getParticipantUserIds());
+        if (userRepository.findAllById(ids).size() != ids.size()) {
+            return ResponseEntity.badRequest().body("Unknown user");
+        }
+
+        for (Long userId : request.getParticipantUserIds()) {
+            Participant p = participantRepository.findByConversationIdAndUserId(conversationId, userId)
+                    .orElseGet(Participant::new);
+
+            if (p.getId() != null && p.getRemovedAt() == null)
+                continue;
+
+            p.setConversationId(conversationId);
+            p.setUserId(userId);
+            p.setAddedAt(Instant.now());
+            p.setRole("MEMBER");
+            p.setRemovedAt(null);
+            participantRepository.save(p);
+        }
+
+        return ResponseEntity.ok("Participants Added.");
+    }
+
+    @DeleteMapping("/{conversationId}/participants")
+    @Transactional
+    public ResponseEntity<?> deleteParticipants(@PathVariable Long conversationId,
+            @RequestBody AlterParticipantRequest request, Authentication authentication) {
+
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
+
+        if (me == null || me.getRemovedAt() != null || !"ADMIN".equals(me.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not an admin");
+        }
+
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null || !"GROUP".equals(conversation.getType())) {
+            return ResponseEntity.badRequest().body("Not a group");
+        }
+
+        if (request.getParticipantUserIds() == null || request.getParticipantUserIds().isEmpty()) {
+            return ResponseEntity.badRequest().body("No users given");
+        }
+
+        Set<Long> ids = new HashSet<>(request.getParticipantUserIds());
+        if (userRepository.findAllById(ids).size() != ids.size()) {
+            return ResponseEntity.badRequest().body("Unknown user");
+        }
+
+        for (Long userId : request.getParticipantUserIds()) {
+            Participant p = participantRepository.findByConversationIdAndUserId(conversationId, userId).orElseThrow();
+
+            if (p == null || p.getRemovedAt() != null)
+                continue;
+
+            p.setRemovedAt(Instant.now());
+            participantRepository.save(p);
+        }
+
+        return ResponseEntity.ok("Participants deleted.");
+    }
+
+    @GetMapping("/{conversationId}/members")
+    public ResponseEntity<?> viewMembers(@PathVariable Long conversationId, Authentication authentication) {
+
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+
+        if (!participantRepository.existsByConversationIdAndUserIdAndRemovedAtIsNull(conversationId, user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not an active member.");
+        }
+
+        List<Participant> participants = participantRepository.findByConversationIdAndRemovedAtIsNull(conversationId);
+
+        Map<Long, User> users = userRepository
+                .findAllById(participants.stream().map(Participant::getUserId).toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        List<Map<String, Object>> result = participants.stream().map(p -> {
+            Map<String, Object> dto = new HashMap<>();
+            dto.put("id", p.getUserId());
+            dto.put("username", users.get(p.getUserId()).getUsername());
+            dto.put("role", p.getRole());
+            return dto;
+        }).toList();
+
+        return ResponseEntity.ok(result);
     }
 
 }

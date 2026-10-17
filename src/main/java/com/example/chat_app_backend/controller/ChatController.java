@@ -47,7 +47,7 @@ public class ChatController {
             return;
         }
 
-        if (!participantRepository.existsByConversationIdAndUserId(chatMessage.getConversationId(), me.getId())) {
+        if (!participantRepository.existsByConversationIdAndUserIdAndRemovedAtIsNull(conversationId, me.getId())) {
             return;
         }
 
@@ -65,7 +65,7 @@ public class ChatController {
         dto.put("content", savedMessage.getContent());
         dto.put("createdAt", savedMessage.getCreatedAt());
 
-        List<Long> ids = participantRepository.findByConversationId(conversationId).stream()
+        List<Long> ids = participantRepository.findByConversationIdAndRemovedAtIsNull(conversationId).stream()
                 .map(Participant::getUserId)
                 .toList();
         for (User u : userRepository.findAllById(ids)) {

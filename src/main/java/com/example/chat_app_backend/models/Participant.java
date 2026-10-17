@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.Instant;
 
 @Entity
 @Table(name = "participants", uniqueConstraints = @UniqueConstraint(columnNames = { "conversation_id", "user_id" }))
@@ -25,5 +26,11 @@ public class Participant {
 
     @Column(nullable = false)
     private Long userId;
+
+    private String role;
+
+    private Instant addedAt;
+
+    private Instant removedAt;
 
 }
