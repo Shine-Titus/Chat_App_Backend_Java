@@ -1,4 +1,4 @@
-package com.example.chat_app_backend.models;
+package com.example.chat_app_backend.schemas;
 
 import lombok.Data;
 

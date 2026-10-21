@@ -27,6 +27,8 @@ public class Participant {
     @Column(nullable = false)
     private Long userId;
 
+    private Long lastReadMessageId;
+
     private String role;
 
     private Instant addedAt;

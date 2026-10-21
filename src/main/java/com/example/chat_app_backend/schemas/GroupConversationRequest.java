@@ -8,5 +8,7 @@ public class GroupConversationRequest {
 
     private String name;
 
+    private String description;
+
     private List<Long> participantIds;
 }

@@ -16,10 +16,10 @@ import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import com.example.chat_app_backend.models.LoginRequest;
-import com.example.chat_app_backend.models.RegisterRequest;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.schemas.LoginRequest;
+import com.example.chat_app_backend.schemas.RegisterRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

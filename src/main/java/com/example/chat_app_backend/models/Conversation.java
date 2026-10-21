@@ -27,6 +27,8 @@ public class Conversation {
 
     private String name;
 
+    private String description;
+
     private Long createdBy;
 
     @CreationTimestamp

@@ -73,6 +73,19 @@ public class ConversationController {
 
                     // dto.put("active", mine.getRemovedAt());
 
+                    // sending un read messages
+                    Participant me = participantRepository
+                            .findByConversationIdAndUserId(c.getConversationId(), user.getId()).orElseThrow();
+                    Instant from = mine.getAddedAt() != null ? mine.getAddedAt() : Instant.EPOCH;
+                    Instant to = mine.getRemovedAt() != null ? mine.getRemovedAt() : Instant.now();
+                    long lastRead = mine.getLastReadMessageId() == null ? 0L : mine.getLastReadMessageId();
+
+                    dto.put("unreadCount", messageRepository.countUnread(c.getConversationId(), lastRead,
+                            me.getUserId(), from, to));
+
+                    dto.put("createdAt", c.getCreatedAt());
+                    dto.put("description", c.getDescription());
+
                     if (mine.getRemovedAt() == null) {
                         dto.put("isActive", true);
                     } else {
@@ -81,7 +94,6 @@ public class ConversationController {
 
                     if ("GROUP".equals(c.getType())) {
                         dto.put("name", c.getName());
-
                     } else {
                         Participant otherParticipant = participantRepository
                                 .findFirstByConversationIdAndUserIdNot(c.getConversationId(), user.getId());
@@ -214,6 +226,7 @@ public class ConversationController {
         created.setType("GROUP");
         created.setName(request.getName());
         created.setCreatedBy(me.getId());
+        created.setDescription(request.getDescription());
         created = conversationRepository.save(created);
 
         Participant p1 = new Participant();
@@ -238,6 +251,8 @@ public class ConversationController {
         dto.put("id", created.getConversationId());
         dto.put("type", created.getType());
         dto.put("name", created.getName());
+        dto.put("description", created.getDescription());
+        dto.put("createAt", created.getCreatedAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
@@ -351,4 +366,27 @@ public class ConversationController {
         return ResponseEntity.ok(result);
     }
 
+    // mark as read
+    @PostMapping("/{conversationId}/read")
+    @Transactional
+    public ResponseEntity<?> markAsRead(@PathVariable Long conversationId, Authentication authentication) {
+
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId())
+                .orElseThrow();
+
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Conversation not found");
+        }
+
+        Long latest = messageRepository.findTopByConversationIdOrderByIdDesc(conversationId).map(Message::getId)
+                .orElse(0L);
+
+        if (me.getLastReadMessageId() == null || latest > me.getLastReadMessageId()) {
+            me.setLastReadMessageId(latest);
+            participantRepository.save(me);
+        }
+
+        return ResponseEntity.ok().build();
+    }
 }
