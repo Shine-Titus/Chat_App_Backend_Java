@@ -29,4 +29,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     List<Message> findByConversationIdAndCreatedAtBetweenOrderByIdAsc(Long conversationId, Instant from, Instant to);
 
+    @Query("SELECT m FROM Message m WHERE m.conversationId IN :ids AND LOWER(m.content) LIKE %:keyword% ORDER BY m.id DESC")
+    List<Message> searchInConversations(@Param("ids") List<Long> ids, @Param("keyword") String keyword);
+
 }

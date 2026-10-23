@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.example.chat_app_backend.models.Participant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 public interface ParticipantRepository extends JpaRepository<Participant, Long> {
 
@@ -20,5 +21,7 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
     Optional<Participant> findByConversationIdAndUserId(Long convervationId, Long userId);
 
     boolean existsByConversationIdAndUserIdAndRemovedAtIsNull(Long conversationId, Long userId);
+
+    List<Participant> findByUserIdAndConversationIdIn(Long userId, Collection<Long> conversationIds);
 
 }
