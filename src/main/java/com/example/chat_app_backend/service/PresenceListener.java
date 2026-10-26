@@ -82,10 +82,12 @@ public class PresenceListener {
 
     }
 
+    // get all online users
     public Set<String> getOnlineUsernames() {
         return Set.copyOf(online.keySet());
     }
 
+    // live feed of who came online or who went offline
     private void broadcast(String username, boolean isOnline) {
         Map<String, Object> payload = Map.<String, Object>of(
                 "username", username,

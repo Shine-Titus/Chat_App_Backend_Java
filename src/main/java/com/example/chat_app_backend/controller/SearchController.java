@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.Message;
 
-import com.example.chat_app_backend.repository.ConversationRepository;
 import com.example.chat_app_backend.repository.MessageRepository;
 import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.repository.UserRepository;
@@ -25,14 +24,12 @@ import java.util.*;
 public class SearchController {
 
     private final MessageRepository messageRepository;
-    private final ConversationRepository conversationRepository;
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
 
-    public SearchController(MessageRepository messageRepository, ConversationRepository conversationRepository,
+    public SearchController(MessageRepository messageRepository,
             ParticipantRepository participantRepository, UserRepository userRepository) {
         this.participantRepository = participantRepository;
-        this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
     }
