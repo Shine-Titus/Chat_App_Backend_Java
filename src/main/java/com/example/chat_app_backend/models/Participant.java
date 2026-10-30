@@ -2,6 +2,8 @@ package com.example.chat_app_backend.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -17,6 +19,10 @@ import java.time.Instant;
 @NoArgsConstructor
 public class Participant {
 
+    public enum GetRole {
+        ADMIN, MEMBER
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,7 +35,9 @@ public class Participant {
 
     private Long lastReadMessageId;
 
-    private String role;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private GetRole role;
 
     private Instant addedAt;
 

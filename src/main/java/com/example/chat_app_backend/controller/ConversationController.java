@@ -139,20 +139,20 @@ public class ConversationController {
                 .findFirst()
                 .orElseGet(() -> {
                     Conversation created = new Conversation();
-                    created.setType("DIRECT");
+                    created.setType(Conversation.GroupType.DIRECT);
                     created.setCreatedBy(me.getId());
                     created = conversationRepository.save(created);
 
                     Participant p1 = new Participant();
                     p1.setConversationId(created.getConversationId());
                     p1.setUserId(me.getId());
-                    p1.setRole("MEMBER");
+                    p1.setRole(Participant.GetRole.MEMBER);
                     p1.setAddedAt(Instant.now());
 
                     Participant p2 = new Participant();
                     p2.setConversationId(created.getConversationId());
                     p2.setUserId(otherId);
-                    p2.setRole("MEMBER");
+                    p2.setRole(Participant.GetRole.MEMBER);
                     p2.setAddedAt(Instant.now());
 
                     participantRepository.save(p1);
@@ -223,7 +223,7 @@ public class ConversationController {
         User me = userRepository.findByUsername(username).orElseThrow();
 
         Conversation created = new Conversation();
-        created.setType("GROUP");
+        created.setType(Conversation.GroupType.GROUP);
         created.setName(request.getName());
         created.setCreatedBy(me.getId());
         created.setDescription(request.getDescription());
@@ -232,7 +232,7 @@ public class ConversationController {
         Participant p1 = new Participant();
         p1.setConversationId(created.getConversationId());
         p1.setUserId(me.getId());
-        p1.setRole("ADMIN");
+        p1.setRole(Participant.GetRole.ADMIN);
         p1.setAddedAt(Instant.now());
         p1.setRemovedAt(null);
         participantRepository.save(p1);
@@ -241,7 +241,7 @@ public class ConversationController {
             Participant p = new Participant();
             p.setConversationId(created.getConversationId());
             p.setUserId(userId);
-            p.setRole("MEMBER");
+            p.setRole(Participant.GetRole.MEMBER);
             p.setAddedAt(Instant.now());
             p.setRemovedAt(null);
             participantRepository.save(p);
@@ -292,7 +292,7 @@ public class ConversationController {
             p.setConversationId(conversationId);
             p.setUserId(userId);
             p.setAddedAt(Instant.now());
-            p.setRole("MEMBER");
+            p.setRole(Participant.GetRole.MEMBER);
             p.setRemovedAt(null);
             participantRepository.save(p);
         }

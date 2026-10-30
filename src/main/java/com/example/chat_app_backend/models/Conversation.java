@@ -2,6 +2,8 @@ package com.example.chat_app_backend.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -19,11 +21,17 @@ import org.hibernate.annotations.CreationTimestamp;
 @NoArgsConstructor
 public class Conversation {
 
+    public enum GroupType {
+        DIRECT, GROUP
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long conversationId;
 
-    private String type;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private GroupType type;
 
     private String name;
 
