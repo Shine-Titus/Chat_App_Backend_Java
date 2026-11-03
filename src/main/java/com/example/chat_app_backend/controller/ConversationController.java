@@ -92,7 +92,7 @@ public class ConversationController {
                         dto.put("isActive", false);
                     }
 
-                    if ("GROUP".equals(c.getType())) {
+                    if (c.getType() == Conversation.GroupType.GROUP) {
                         dto.put("name", c.getName());
                     } else {
                         Participant otherParticipant = participantRepository
@@ -134,7 +134,7 @@ public class ConversationController {
                 .toList();
 
         Conversation conversation = conversationRepository.findAllById(myIds).stream()
-                .filter(c -> "DIRECT".equals(c.getType()))
+                .filter(c -> c.getType() != Conversation.GroupType.DIRECT)
                 .filter(c -> participantRepository.existsByConversationIdAndUserId(c.getConversationId(), otherId))
                 .findFirst()
                 .orElseGet(() -> {
@@ -264,12 +264,12 @@ public class ConversationController {
         User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
         Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
 
-        if (me == null || me.getRemovedAt() != null || !"ADMIN".equals(me.getRole())) {
+        if (me == null || me.getRemovedAt() != null || me.getRole() != Participant.GetRole.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not an admin");
         }
 
         Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
-        if (conversation == null || !"GROUP".equals(conversation.getType())) {
+        if (conversation == null || conversation.getType() != Conversation.GroupType.GROUP) {
             return ResponseEntity.badRequest().body("Not a group");
         }
 
@@ -308,12 +308,12 @@ public class ConversationController {
         User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
         Participant me = participantRepository.findByConversationIdAndUserId(conversationId, user.getId()).orElse(null);
 
-        if (me == null || me.getRemovedAt() != null || !"ADMIN".equals(me.getRole())) {
+        if (me == null || me.getRemovedAt() != null || me.getRole() != Participant.GetRole.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not an admin");
         }
 
         Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
-        if (conversation == null || !"GROUP".equals(conversation.getType())) {
+        if (conversation == null || conversation.getType() != Conversation.GroupType.GROUP) {
             return ResponseEntity.badRequest().body("Not a group");
         }
 

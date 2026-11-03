@@ -5,10 +5,10 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import com.example.chat_app_backend.models.ChatMessage;
 import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.repository.MessageRepository;
 import com.example.chat_app_backend.repository.UserRepository;
+import com.example.chat_app_backend.schemas.ChatMessageRequest;
 import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.Participant;
@@ -37,7 +37,7 @@ public class ChatController {
 
     // broadcsting
     @MessageMapping("/chat")
-    public void sendMessage(@Payload ChatMessage chatMessage, Principal principal) {
+    public void sendMessage(@Payload ChatMessageRequest chatMessage, Principal principal) {
 
         User me = userRepository.findByUsername(principal.getName()).orElseThrow();
         Long conversationId = chatMessage.getConversationId();
