@@ -39,7 +39,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/register").permitAll()
                         .requestMatchers("/auth/me", "/messages/**", "/users/**", "/conversations/**", "/search/**",
                                 "/ws/**",
-                                "/tags/**")
+                                "/tags/**",
+                                "/schedule-message")
                         .authenticated()
                         .anyRequest().permitAll());
 

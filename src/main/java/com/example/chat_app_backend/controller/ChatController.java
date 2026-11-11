@@ -1,76 +1,82 @@
 package com.example.chat_app_backend.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.ResponseEntity;
 
-import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.repository.MessageRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.schemas.ChatMessageRequest;
 import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.models.User;
-import com.example.chat_app_backend.models.Participant;
+import com.example.chat_app_backend.models.ScheduledMessage;
+
+import com.example.chat_app_backend.repository.ScheduledMessageRepository;
+import com.example.chat_app_backend.schemas.ScheduledMessageRequest;
+import com.example.chat_app_backend.service.MessageService;
 
 import java.security.Principal;
-import java.util.*;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
+import org.springframework.security.core.Authentication;
 
 @Controller
 public class ChatController {
 
-    private final MessageRepository messageRepository;
-
-    private final ParticipantRepository participantRepository;
-
     private final UserRepository userRepository;
 
-    private final SimpMessagingTemplate messageTemplate;
+    private final ScheduledMessageRepository scheduledMessageRepository;
 
-    public ChatController(MessageRepository messageRepository, UserRepository userRepository,
-            SimpMessagingTemplate messagingTemplate, ParticipantRepository participantRepository) {
-        this.messageRepository = messageRepository;
+    private final MessageService messageService;
+
+    public ChatController( UserRepository userRepository, 
+        ScheduledMessageRepository scheduledMessageRepository, 
+        MessageService messageService
+    ) {
         this.userRepository = userRepository;
-        this.messageTemplate = messagingTemplate;
-        this.participantRepository = participantRepository;
+        this.scheduledMessageRepository = scheduledMessageRepository;
+        this.messageService = messageService;
     }
 
     // broadcsting
     @MessageMapping("/chat")
     public void sendMessage(@Payload ChatMessageRequest chatMessage, Principal principal) {
-
         User me = userRepository.findByUsername(principal.getName()).orElseThrow();
-        Long conversationId = chatMessage.getConversationId();
-        String content = chatMessage.getContent();
+        messageService.sendMessage(me.getId(), chatMessage.getConversationId(), chatMessage.getContent());
+    }
+    
+    @PostMapping("/schedule-message")
+    public ResponseEntity<ScheduledMessage> scheduleMessage(@RequestBody ScheduledMessageRequest request, Authentication authentication) {
 
-        if (conversationId == null || content == null || content.isBlank()) {
-            return;
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+
+        Instant sendAt = Instant.ofEpochMilli(request.getSendAt())
+        .truncatedTo(ChronoUnit.MINUTES);
+
+        if (sendAt.isBefore(Instant.now().truncatedTo(ChronoUnit.MINUTES))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sendAt must be in the future");
         }
 
-        if (!participantRepository.existsByConversationIdAndUserIdAndRemovedAtIsNull(conversationId, me.getId())) {
-            return;
-        }
+        ScheduledMessage.Status status = ScheduledMessage.Status.PENDING;
 
-        Message message = new Message();
-        message.setSenderId(me.getId());
-        message.setConversationId(conversationId);
-        message.setContent(content);
-        Message savedMessage = messageRepository.save(message);
+        ScheduledMessage scheduledMessage = new ScheduledMessage();
 
-        Map<String, Object> dto = new HashMap<>();
-        dto.put("id", savedMessage.getId());
-        dto.put("senderId", savedMessage.getSenderId());
-        dto.put("conversationId", savedMessage.getConversationId());
-        dto.put("senderUsername", me.getUsername());
-        dto.put("content", savedMessage.getContent());
-        dto.put("createdAt", savedMessage.getCreatedAt());
+        scheduledMessage.setConversationId(request.getConversationId());    
+        scheduledMessage.setSenderId(user.getId());
+        scheduledMessage.setContent(request.getContent());
+        scheduledMessage.setSendAt(sendAt);
+        scheduledMessage.setStatus(status);
 
-        List<Long> ids = participantRepository.findByConversationIdAndRemovedAtIsNull(conversationId).stream()
-                .map(Participant::getUserId)
-                .toList();
-        for (User u : userRepository.findAllById(ids)) {
-            messageTemplate.convertAndSendToUser(u.getUsername(), "/queue/messages", dto);
-        }
+        ScheduledMessage savedScheduledMessage = scheduledMessageRepository.save(scheduledMessage);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedScheduledMessage);
 
     }
 }
