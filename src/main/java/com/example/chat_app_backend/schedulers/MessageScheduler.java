@@ -8,8 +8,9 @@ import com.example.chat_app_backend.service.MessageService;
 
 import java.time.Instant;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
-
+@Slf4j
 @Service 
 public class MessageScheduler {
 
@@ -26,14 +27,19 @@ public class MessageScheduler {
     @Scheduled(fixedDelay = 10000)
     public void checkAndSendScheduledMessages() {
         
-        List<ScheduledMessage> due = scheduledMessageRepository.findBySendAtLesserThanEqual(Instant.now());
+        List<ScheduledMessage> due = scheduledMessageRepository.findByStatusAndSendAtLessThanEqualOrderBySendAtAsc(ScheduledMessage.Status.PENDING, Instant.now());
+        log.info("Scheduler tick: {} due messages", due.size());
 
         for (ScheduledMessage m : due) {
 
             try {
                 boolean ok = messageService.sendMessage(m.getSenderId(), m.getConversationId(), m.getContent());
-                m.setStatus(ok ? ScheduledMessage.Status.SENT : ScheduledMessage.Status.FAILED)
+                m.setStatus(ok ? ScheduledMessage.Status.SENT : ScheduledMessage.Status.FAILED);
+
+            } catch(Exception e) {
+                m.setStatus(ScheduledMessage.Status.FAILED);
             }
+            scheduledMessageRepository.save(m);
         }
 
     }

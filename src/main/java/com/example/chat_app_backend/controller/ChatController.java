@@ -2,18 +2,20 @@ package com.example.chat_app_backend.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.stereotype.Controller;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+// import org.springframework.stereotype.Controller;
+
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.ResponseEntity;
 
-import com.example.chat_app_backend.repository.MessageRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 import com.example.chat_app_backend.schemas.ChatMessageRequest;
-import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.ScheduledMessage;
 
@@ -25,9 +27,11 @@ import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import java.util.*;
+
 import org.springframework.security.core.Authentication;
 
-@Controller
+@RestController
 public class ChatController {
 
     private final UserRepository userRepository;
@@ -47,7 +51,7 @@ public class ChatController {
 
     // broadcsting
     @MessageMapping("/chat")
-    public void sendMessage(@Payload ChatMessageRequest chatMessage, Principal principal) {
+    public void broadcastMessage(@Payload ChatMessageRequest chatMessage, Principal principal) {
         User me = userRepository.findByUsername(principal.getName()).orElseThrow();
         messageService.sendMessage(me.getId(), chatMessage.getConversationId(), chatMessage.getContent());
     }
@@ -78,5 +82,21 @@ public class ChatController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(savedScheduledMessage);
 
+    }
+
+    @GetMapping("/schedule-message/{conversationId}")
+    public List<ScheduledMessage> getPendingMessages(@PathVariable Long conversationId, Authentication authentication) {
+
+        User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        List<ScheduledMessage> pending = scheduledMessageRepository.findByConversationIdAndSenderIdAndStatus(conversationId, user.getId(), ScheduledMessage.Status.PENDING);
+
+        return pending;
+    }
+
+    @DeleteMapping("/schedule-message/{id}")
+    public ResponseEntity<?> deletePendingMessage(@PathVariable Long id, Authentication authentication) {
+        // User user = userRepository.findByUsername(authentication.getName()).orElseThrow();
+        scheduledMessageRepository.deleteById(id);
+        return ResponseEntity.ok("scheduled message deleted.");
     }
 }

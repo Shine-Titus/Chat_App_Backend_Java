@@ -8,6 +8,11 @@ import java.util.List;
 
 public interface ScheduledMessageRepository extends JpaRepository<ScheduledMessage, Long> {
     
-    List<ScheduledMessage> findBySendAtLesserThanEqual(Instant sendAt);
+    List<ScheduledMessage> findByStatusAndSendAtLessThanEqualOrderBySendAtAsc(
+        ScheduledMessage.Status status, Instant now);
+
+    List<ScheduledMessage> findByConversationIdAndSenderIdAndStatus(Long conversationId, Long senderId, ScheduledMessage.Status statu);
+
+    void deleteById(Long id);
     
 }

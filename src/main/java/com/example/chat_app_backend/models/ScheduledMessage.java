@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Data 
 @Table(
     name = "scheduled_messages",
-    indexes = @Index(name = "idx_scheduled_messages_send_at", columnList = "sendAt")
+    indexes = @Index(name = "idx_scheduled_messages_status_send_at", columnList = "status, sendAt")
 )
 @NoArgsConstructor 
 public class ScheduledMessage {
