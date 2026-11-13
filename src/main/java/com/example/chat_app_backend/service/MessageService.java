@@ -9,6 +9,7 @@ import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.repository.UserRepository;
 
 import com.example.chat_app_backend.models.User;
+import com.example.chat_app_backend.dto.MemberView;
 import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.models.Participant;
 import java.util.*;
@@ -37,15 +38,15 @@ public class MessageService {
     
     public boolean sendMessage(Long senderId, Long conversationId, String content) {
 
-        if (conversationId == null || content == null || content.isBlank()) {
-            return false;
-        }
+        if (conversationId == null || content == null || content.isBlank()) { return false;}
 
-        User sender = userRepository.findById(senderId).orElseThrow();
+        List<MemberView> members = participantRepository.findActiveMembers(conversationId);
 
-        if (!participantRepository.existsByConversationIdAndUserIdAndRemovedAtIsNull(conversationId, senderId)) {
-            return false;
-        }
+        MemberView sender = members.stream()
+            .filter(m -> m.getUserId().equals(senderId))
+            .findFirst().orElse(null);
+
+        if (sender == null) return false;   // not an active member
 
         Message message = new Message();
         message.setSenderId(senderId);
@@ -64,11 +65,10 @@ public class MessageService {
         List<Long> ids = participantRepository.findByConversationIdAndRemovedAtIsNull(conversationId).stream()
                 .map(Participant::getUserId)
                 .toList();
-        for (User u : userRepository.findAllById(ids)) {
-            messageTemplate.convertAndSendToUser(u.getUsername(), "/queue/messages", dto);
-        }
-
-        return true;
+        for (MemberView m : members) {
+        messageTemplate.convertAndSendToUser(m.getUsername(), "/queue/messages", dto);
+    }
+    return true;
     }
 
 }

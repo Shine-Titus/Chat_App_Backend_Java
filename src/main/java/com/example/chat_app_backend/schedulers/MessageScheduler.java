@@ -1,47 +1,77 @@
 package com.example.chat_app_backend.schedulers;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import com.example.chat_app_backend.repository.ScheduledMessageRepository;
 import com.example.chat_app_backend.models.ScheduledMessage;
 import com.example.chat_app_backend.service.MessageService;
+import java.util.concurrent.CompletableFuture;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.Executor;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service 
 public class MessageScheduler {
 
+    private static final int BATCH_SIZE = 100;
+
     private final ScheduledMessageRepository scheduledMessageRepository;
     private final MessageService messageService;
+    private final Executor workExecutor;
+
 
     public MessageScheduler(ScheduledMessageRepository scheduledMessageRepository,
-        MessageService messageService
+        MessageService messageService,
+        @Qualifier("messageWorkerExecutor") Executor workExecutor
     ) {
         this.messageService = messageService;
         this.scheduledMessageRepository = scheduledMessageRepository;
+        this.workExecutor = workExecutor;
     }
 
-    @Scheduled(fixedDelay = 10000)
-    public void checkAndSendScheduledMessages() {
-        
-        List<ScheduledMessage> due = scheduledMessageRepository.findByStatusAndSendAtLessThanEqualOrderBySendAtAsc(ScheduledMessage.Status.PENDING, Instant.now());
-        log.info("Scheduler tick: {} due messages", due.size());
+    @Scheduled(fixedDelay = 2000)
+    public void tick() {
 
-        for (ScheduledMessage m : due) {
+        List<ScheduledMessage> due = scheduledMessageRepository.findByStatusAndSendAtLessThanEqualOrderBySendAtAsc(
 
-            try {
-                boolean ok = messageService.sendMessage(m.getSenderId(), m.getConversationId(), m.getContent());
-                m.setStatus(ok ? ScheduledMessage.Status.SENT : ScheduledMessage.Status.FAILED);
+            ScheduledMessage.Status.PENDING, Instant.now(), PageRequest.of(0, BATCH_SIZE));
 
-            } catch(Exception e) {
-                m.setStatus(ScheduledMessage.Status.FAILED);
-            }
-            scheduledMessageRepository.save(m);
+        if (due.isEmpty()) {
+            log.info("No scheduled messages to send.");
+            return;
+        }
+
+        List<CompletableFuture<Void>> futures = due.stream()
+            .map(message -> CompletableFuture.runAsync(() -> process(message), workExecutor))
+            .toList();
+
+        // next tick fires only after the full batch finishes 
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        if (due.size() < BATCH_SIZE) {
+            // log.info("Processed a full batch of {} scheduled messages, checking for more...", BATCH_SIZE);
+            // tick(); // recursively call tick to process the next batch
+            return; // let the next scheduled tick handle the next batch
         }
 
     }
-    
+
+    public void process(ScheduledMessage message) {
+
+        try {
+            boolean ok = messageService.sendMessage(message.getSenderId(), message.getConversationId(), message.getContent());
+                message.setStatus(ok ? ScheduledMessage.Status.SENT : ScheduledMessage.Status.FAILED);
+
+        } catch(Exception e) {
+                message.setStatus(ScheduledMessage.Status.FAILED);
+            }
+        
+            scheduledMessageRepository.save(message);
+        }
 }
