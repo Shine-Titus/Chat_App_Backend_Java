@@ -13,9 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 
 import com.example.chat_app_backend.models.*;
-
-import com.example.chat_app_backend.schemas.CreateTagRequest;
-import com.example.chat_app_backend.schemas.TagConversationsRequest;
+import com.example.chat_app_backend.schemas.request.CreateTagRequest;
+import com.example.chat_app_backend.schemas.request.TagConversationsRequest;
 
 import org.springframework.transaction.annotation.Transactional;
 

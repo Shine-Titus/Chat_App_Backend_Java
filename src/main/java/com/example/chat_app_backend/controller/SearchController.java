@@ -12,9 +12,8 @@ import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.repository.MessageRepository;
 import com.example.chat_app_backend.repository.ParticipantRepository;
 import com.example.chat_app_backend.repository.UserRepository;
-
-import com.example.chat_app_backend.schemas.SearchHit;
-import com.example.chat_app_backend.schemas.SearchResult;
+import com.example.chat_app_backend.schemas.response.SearchHit;
+import com.example.chat_app_backend.schemas.response.SearchResult;
 
 import org.springframework.security.core.Authentication;
 import java.util.*;

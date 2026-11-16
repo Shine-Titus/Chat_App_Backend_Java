@@ -9,10 +9,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+    @Index(name = "idx_messages_conversation_created", columnList = "conversation_id, created_at")
+})
 @Data
 @NoArgsConstructor
 public class Message {
+
+    public enum Type {
+        TEXT, FILE
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,10 +30,14 @@ public class Message {
     @Column(nullable = false)
     private Long senderId;
 
-    @Column(nullable = false)
     private String content;
 
     @CreationTimestamp
     @Column(updatable = false)
     private Instant createdAt;
+
+    @Enumerated(EnumType.STRING)
+    private Type type = Type.TEXT;
+
+    private Long fileAttachmentId;  // Nullable, only set if type is FILE
 }

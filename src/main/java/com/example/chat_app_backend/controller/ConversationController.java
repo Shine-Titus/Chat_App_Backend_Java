@@ -15,19 +15,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 
 import com.example.chat_app_backend.models.Conversation;
+import com.example.chat_app_backend.models.FileAttachment;
 import com.example.chat_app_backend.models.Message;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.Participant;
 import com.example.chat_app_backend.repository.ConversationRepository;
 import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.schemas.AlterParticipantRequest;
-import com.example.chat_app_backend.schemas.DirectConversationRequest;
-import com.example.chat_app_backend.schemas.GroupConversationRequest;
+import com.example.chat_app_backend.schemas.request.AlterParticipantRequest;
+import com.example.chat_app_backend.schemas.request.DirectConversationRequest;
+import com.example.chat_app_backend.schemas.request.GroupConversationRequest;
+import com.example.chat_app_backend.repository.ParticipantRepository;
+import com.example.chat_app_backend.repository.FileAttachmentRepository;
+import com.example.chat_app_backend.repository.MessageRepository;
+import com.example.chat_app_backend.dto.FileResponse;
 
 import jakarta.transaction.Transactional;
 
-import com.example.chat_app_backend.repository.MessageRepository;
-import com.example.chat_app_backend.repository.ParticipantRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -40,14 +43,20 @@ public class ConversationController {
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
+    private final FileAttachmentRepository fileAttachmentRepository;
 
     public ConversationController(ConversationRepository conversationRepository,
-            ParticipantRepository participantRepository, MessageRepository messageRepository,
-            UserRepository userRepository) {
+            ParticipantRepository participantRepository, 
+            MessageRepository messageRepository,
+            UserRepository userRepository, 
+            FileAttachmentRepository fileAttachmentRepository
+        ) {
+
         this.conversationRepository = conversationRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.messageRepository = messageRepository;
+        this.fileAttachmentRepository = fileAttachmentRepository;
     }
 
     // get all conversations
@@ -116,8 +125,7 @@ public class ConversationController {
     public ResponseEntity<?> openDirectConversation(@RequestBody DirectConversationRequest request,
             Authentication authentication) {
 
-        String myUsername = authentication.getName();
-        User me = userRepository.findByUsername(myUsername).orElseThrow();
+        User me = userRepository.findByUsername(authentication.getName()).orElseThrow();
         Long otherId = request.getUserId();
 
         if (otherId == null || otherId.equals(me.getId())) {
@@ -125,6 +133,7 @@ public class ConversationController {
         }
 
         User other = userRepository.findById(otherId).orElse(null);
+
         if (other == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
         }
@@ -134,7 +143,7 @@ public class ConversationController {
                 .toList();
 
         Conversation conversation = conversationRepository.findAllById(myIds).stream()
-                .filter(c -> c.getType() != Conversation.GroupType.DIRECT)
+                .filter(c -> c.getType() != Conversation.GroupType.GROUP)
                 .filter(c -> participantRepository.existsByConversationIdAndUserId(c.getConversationId(), otherId))
                 .findFirst()
                 .orElseGet(() -> {
@@ -182,11 +191,6 @@ public class ConversationController {
 
         Instant historyEnd = me.getRemovedAt();
 
-        // if (!participantRepository.existsByConversationIdAndUserId(conversationId,
-        // me.getUserId())) {
-        // return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant");
-        // }
-
         if (historyEnd == null) {
             historyEnd = Instant.now();
         }
@@ -199,6 +203,16 @@ public class ConversationController {
                 .stream()
                 .collect(Collectors.toMap(User::getId, User::getUsername));
 
+        Set<Long> fileIds = messages.stream()
+                .map(Message::getFileAttachmentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, FileAttachment> files = fileIds.isEmpty()
+                ? Map.of()
+                : fileAttachmentRepository.findAllById(fileIds).stream()
+                        .collect(Collectors.toMap(FileAttachment::getId, f -> f));
+
         List<Map<String, Object>> result = messages.stream().map(m -> {
             Map<String, Object> dto = new HashMap<>();
             dto.put("id", m.getId());
@@ -207,6 +221,14 @@ public class ConversationController {
             dto.put("senderUsername", names.get(m.getSenderId()));
             dto.put("content", m.getContent());
             dto.put("createdAt", m.getCreatedAt());
+            
+            dto.put("type", m.getType() == null ? "TEXT" : m.getType().name());
+
+            if (m.getFileAttachmentId() != null) {
+                dto.put("fileAttachmentId", m.getFileAttachmentId());
+                FileAttachment fa = files.get(m.getFileAttachmentId());
+                if (fa != null) dto.put("fileAttachment", FileResponse.from(fa));
+            }
             return dto;
         }).toList();
 

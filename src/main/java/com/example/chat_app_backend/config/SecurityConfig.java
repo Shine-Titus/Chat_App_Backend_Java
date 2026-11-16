@@ -40,7 +40,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/me", "/messages/**", "/users/**", "/conversations/**", "/search/**",
                                 "/ws/**",
                                 "/tags/**",
-                                "/schedule-message/**")
+                                "/schedule-message/**",
+                                "/files/**")
                         .authenticated()
                         .anyRequest().permitAll());
 

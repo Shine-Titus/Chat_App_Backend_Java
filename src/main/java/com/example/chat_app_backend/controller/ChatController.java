@@ -15,15 +15,14 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.ResponseEntity;
 
 import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.schemas.ChatMessageRequest;
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.models.ScheduledMessage;
 
 import com.example.chat_app_backend.repository.ScheduledMessageRepository;
-import com.example.chat_app_backend.schemas.ScheduledMessageRequest;
+import com.example.chat_app_backend.schemas.request.ChatMessageRequest;
+import com.example.chat_app_backend.schemas.request.ScheduledMessageRequest;
 import com.example.chat_app_backend.service.MessageService;
 
-import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -51,9 +50,8 @@ public class ChatController {
 
     // broadcsting
     @MessageMapping("/chat")
-    public void broadcastMessage(@Payload ChatMessageRequest chatMessage, Principal principal) {
-        User me = userRepository.findByUsername(principal.getName()).orElseThrow();
-        messageService.sendMessage(me.getId(), chatMessage.getConversationId(), chatMessage.getContent());
+    public void broadcastMessage(@Payload ChatMessageRequest chatMessage, Authentication authentication) {
+        messageService.sendMessage(chatMessage, authentication);
     }
     
     @PostMapping("/schedule-message")

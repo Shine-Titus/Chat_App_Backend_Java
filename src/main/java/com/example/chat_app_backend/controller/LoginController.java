@@ -18,8 +18,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.example.chat_app_backend.models.User;
 import com.example.chat_app_backend.repository.UserRepository;
-import com.example.chat_app_backend.schemas.LoginRequest;
-import com.example.chat_app_backend.schemas.RegisterRequest;
+import com.example.chat_app_backend.schemas.request.LoginRequest;
+import com.example.chat_app_backend.schemas.request.RegisterRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

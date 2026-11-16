@@ -13,7 +13,7 @@ public interface ScheduledMessageRepository extends JpaRepository<ScheduledMessa
     List<ScheduledMessage> findByStatusAndSendAtLessThanEqualOrderBySendAtAsc(
         ScheduledMessage.Status status, Instant now, Pageable pageable);
 
-    List<ScheduledMessage> findByConversationIdAndSenderIdAndStatus(Long conversationId, Long senderId, ScheduledMessage.Status statu);
+    List<ScheduledMessage> findByConversationIdAndSenderIdAndStatus(Long conversationId, Long senderId, ScheduledMessage.Status status);
 
     void deleteById(Long id);
     
